@@ -1,0 +1,18 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Env / secrets
+.env
+serviceAccountKey.json
+
+# Build outputs
+client/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Firebase local
+.firebase/

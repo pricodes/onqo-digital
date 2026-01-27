@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 24 24 27; /* Zinc-900 */
+    --foreground: 228 228 231; /* Zinc-200 */
+    --primary: 162 208 51; /* Lime */
+  }
+}
+
+.bg-pattern {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
