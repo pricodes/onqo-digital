@@ -10,10 +10,10 @@ const Layout = () => {
     return (
         <div className="min-h-screen flex flex-col bg-background text-foreground font-sans">
             {/* Header */}
-            <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
+            <header className="sticky top-0 z-50 border-b border-border bg-zinc-900/90 backdrop-blur-md">
                 <div className="container mx-auto px-4 py-4 flex justify-between items-center">
                     <Link to="/" className="text-2xl font-bold tracking-tighter text-white">
-                        ONQO<span className="text-primary">.</span>
+                        ONQO Digital<span className="text-primary">.</span>
                     </Link>
 
                     {/* Desktop Nav */}
@@ -55,7 +55,7 @@ const Layout = () => {
                 <div className="container mx-auto px-4 grid md:grid-cols-4 gap-8">
                     <div className="col-span-1 md:col-span-2">
                         <Link to="/" className="text-2xl font-bold tracking-tighter text-white mb-4 block">
-                            ONQO<span className="text-primary">.</span>
+                            ONQO Digital<span className="text-primary">.</span>
                         </Link>
                         <p className="text-zinc-500 max-w-sm">
                             Helping businesses build right and grow faster through digital transformation and practical AI.
