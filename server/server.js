@@ -1,10 +1,11 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const PDFDocument = require('pdfkit');
 const admin = require('firebase-admin');
 const fs = require('fs');
 const path = require('path');
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 const { VertexAI } = require('@google-cloud/vertexai');
 
 const app = express();
@@ -39,54 +40,52 @@ try {
    Email Helper
 ------------------------------------------------------------------- */
 async function sendEmail(to, report) {
-    if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER) {
-        console.log("Email configuration missing. Simulating email sent to:", to);
-        return;
+    if (!process.env.SENDGRID_API_KEY) {
+        console.error("Missing SendGrid API Key");
+        throw new Error("Missing SendGrid API Key");
     }
 
-    try {
-        const transporter = nodemailer.createTransport({
-            host: process.env.EMAIL_HOST,
-            port: process.env.EMAIL_PORT || 587,
-            secure: process.env.EMAIL_SECURE === 'true',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
-        });
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
-        const html = `
-            <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
-                <h1 style="color: #000;">Your Digital Readiness Audit</h1>
-                <p>Here is the executive summary for your organization based on the recent assessment.</p>
+    const html = `
+        <div style="font-family: sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #000;">Your Digital Readiness Audit</h1>
+            <p>Here is the executive summary for your organization based on the recent assessment.</p>
 
-                <div style="background: #f4f4f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                    <h2 style="margin-top: 0;">Readiness Index: ${report.score || 0}/10</h2>
-                    <p><strong>Primary Focus:</strong> ${report.focusSignal || 'Assessment Complete'}</p>
-                    <p>${report.summary || ''}</p>
-                </div>
-
-                <h3>Strategic Considerations</h3>
-                <ul>
-                    ${(report.nextSteps || []).map(step => `<li>${step}</li>`).join('')}
-                </ul>
-
-                <p style="font-size: 12px; color: #666; margin-top: 40px;">
-                    This is an automated report from ONQO Digital.
-                </p>
+            <div style="background: #f4f4f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h2 style="margin-top: 0;">Readiness Index: ${report.score || 0}/10</h2>
+                <p><strong>Primary Focus:</strong> ${report.focusSignal || 'Assessment Complete'}</p>
+                <p>${report.summary || ''}</p>
             </div>
-        `;
 
-        await transporter.sendMail({
-            from: process.env.EMAIL_FROM || '"ONQO Digital" <audit@onqo.digital>',
-            to: to,
-            subject: `Your Digital Readiness Assessment - ${report.focusSignal || 'Results'}`,
-            html: html,
-        });
+            <h3>Strategic Considerations</h3>
+            <ul>
+                ${(report.nextSteps || []).map(step => `<li>${step}</li>`).join('')}
+            </ul>
 
+            <p style="font-size: 12px; color: #666; margin-top: 40px;">
+                This is an automated report from ONQO Digital.
+            </p>
+        </div>
+    `;
+
+    const msg = {
+        to: to,
+        bcc: process.env.MAIL_BCC || 'priya@onqo.in',
+        from: process.env.MAIL_FROM || 'insights@onqo.in',
+        subject: `Your Digital Readiness Assessment - ${report.focusSignal || 'Results'}`,
+        html: html,
+    };
+
+    try {
+        await sgMail.send(msg);
         console.log("Email sent successfully to:", to);
     } catch (error) {
         console.error("Failed to send email:", error);
+        if (error.response) {
+            console.error(error.response.body);
+        }
+        throw error;
     }
 }
 
@@ -374,68 +373,61 @@ app.post('/api/audit/summary', async (req, res) => {
   try {
     const { email, answers, score, initialGaps } = req.body;
 
+    // Check Vertex AI Config
+    const project = process.env.GOOGLE_CLOUD_PROJECT || process.env.VERTEX_PROJECT_ID;
+    const location = process.env.VERTEX_LOCATION || 'us-central1';
+    const modelId = process.env.VERTEX_MODEL || 'gemini-1.5-flash-001'; // Supports gemini-1.5-pro or flash
+
+    if (!project) {
+        console.error("Missing Google Cloud Project ID");
+        return res.status(503).json({
+            error: 'Service not configured',
+            details: 'Missing GOOGLE_CLOUD_PROJECT environment variable.'
+        });
+    }
+
     let aiOutput = {};
 
-    // Only attempt AI generation if project ID is available, else mock
-    if (process.env.GOOGLE_CLOUD_PROJECT) {
-      const vertex_ai = new VertexAI({
-        project: process.env.GOOGLE_CLOUD_PROJECT,
-        location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
-      });
-      const model = 'gemini-1.5-flash-001'; // or gemini-pro
-      const generativeModel = vertex_ai.getGenerativeModel({ model: model });
+    const vertex_ai = new VertexAI({
+        project: project,
+        location: location
+    });
+    const generativeModel = vertex_ai.getGenerativeModel({ model: modelId });
 
-      const prompt = `
-      You are a senior digital transformation consultant. Analyze the following business context and generate a strategic executive summary.
+    const prompt = `
+    You are a senior digital transformation consultant. Analyze the following business context and generate a strategic executive summary.
 
-      CONTEXT:
-      - Industry: ${answers.industry}
-      - Size: ${answers.businessSize}
-      - Infrastructure: ${answers.infrastructure}
-      - Automation Level: ${answers.automation}
-      - Data Maturity: ${answers.data}
-      - AI Readiness: ${answers.ai_readiness}
-      - Bottleneck: ${answers.bottleneck}
-      - Tech Stack: ${answers.tech_stack}
+    CONTEXT:
+    - Industry: ${answers.industry}
+    - Size: ${answers.businessSize}
+    - Infrastructure: ${answers.infrastructure}
+    - Automation Level: ${answers.automation}
+    - Data Maturity: ${answers.data}
+    - AI Readiness: ${answers.ai_readiness}
+    - Bottleneck: ${answers.bottleneck}
+    - Tech Stack: ${answers.tech_stack}
 
-      AUDIT SCORE: ${score}/10
-      INITIAL GAPS IDENTIFIED: ${initialGaps?.join(', ')}
+    AUDIT SCORE: ${score}/10
+    INITIAL GAPS IDENTIFIED: ${initialGaps?.join(', ')}
 
-      OUTPUT REQUIREMENTS:
-      Generate a JSON object with the following fields (do not include markdown formatting):
-      1. "summary": A 3-4 sentence executive summary. Calm, insightful, professional. Focus on structural constraints.
-      2. "focusSignal": A short, punchy 3-5 word title for their primary area of attention (e.g. "Decision Visibility & Governance").
-      3. "nextSteps": An array of 3 specific, discovery-oriented next steps (what to audit/map next, not what tool to buy).
-      4. "gapImpacts": An array of objects matching the "initialGaps" provided, but adding a "whyItMatters" field for each. If initialGaps is empty, generate 3 likely gaps based on context.
-          Format: [{ "gap": "...", "whyItMatters": "..." }]
+    OUTPUT REQUIREMENTS:
+    Generate a JSON object with the following fields (do not include markdown formatting):
+    1. "summary": A 3-4 sentence executive summary. Calm, insightful, professional. Focus on structural constraints.
+    2. "focusSignal": A short, punchy 3-5 word title for their primary area of attention (e.g. "Decision Visibility & Governance").
+    3. "nextSteps": An array of 3 specific, discovery-oriented next steps (what to audit/map next, not what tool to buy).
+    4. "gapImpacts": An array of objects matching the "initialGaps" provided, but adding a "whyItMatters" field for each. If initialGaps is empty, generate 3 likely gaps based on context.
+        Format: [{ "gap": "...", "whyItMatters": "..." }]
 
-      TONE: Consultant-grade. No sales fluff. No "unleash potential". Use terms like "friction", "latency", "silos", "governance", "throughput".
-      `;
+    TONE: Consultant-grade. No sales fluff. No "unleash potential". Use terms like "friction", "latency", "silos", "governance", "throughput".
+    `;
 
-      const result = await generativeModel.generateContent(prompt);
-      const response = await result.response;
-      const text = response.candidates[0].content.parts[0].text;
+    const result = await generativeModel.generateContent(prompt);
+    const response = await result.response;
+    const text = response.candidates[0].content.parts[0].text;
 
-      // Clean up markdown code blocks if present
-      const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      aiOutput = JSON.parse(jsonStr);
-
-    } else {
-      console.log("No Google Cloud Project ID found. Using mock AI response.");
-      aiOutput = {
-        summary: `Your organization shows a ${score <= 6 ? 'structural constraint' : 'growth'} profile. The current reliance on ${answers.automation?.toLowerCase() || 'manual'} workflows in a ${answers.businessSize} environment creates hidden operational friction. As you scale, this friction will likely compound into decision latency and inconsistent data visibility.`,
-        focusSignal: "Operational Throughput & Data Governance",
-        nextSteps: [
-            "Map the end-to-end lifecycle of a single customer order to identify handoff latency.",
-            "Audit current data sources to define a single source of truth for key metrics.",
-            "Review access controls and security protocols across the tech stack."
-        ],
-        gapImpacts: (initialGaps || ["Manual Workflows", "Data Silos", "Visibility"]).map(gap => ({
-            gap,
-            whyItMatters: "Operational throughput drops as execution depends on people, not systems."
-        }))
-      };
-    }
+    // Clean up markdown code blocks if present
+    const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    aiOutput = JSON.parse(jsonStr);
 
     const report = {
         ...aiOutput,
@@ -452,14 +444,13 @@ app.post('/api/audit/summary', async (req, res) => {
     res.json(report);
   } catch (error) {
     console.error("Summary generation error:", error);
-    // Fallback response if AI fails
-    res.json({
-        summary: "We encountered an error generating the custom insight, but your score indicates structural constraints in automation and data visibility.",
-        focusSignal: "Infrastructure & Process Review",
-        nextSteps: ["Review core workflows", "Audit data sources", "Assess security posture"],
-        gapImpacts: [],
-        id: Date.now().toString()
-    });
+    if (error.message === "Missing SendGrid API Key") {
+        return res.status(503).json({
+            error: 'Service not configured',
+            details: 'Missing SENDGRID_API_KEY environment variable.'
+        });
+    }
+    res.status(500).json({ error: 'Failed to generate report' });
   }
 });
 
