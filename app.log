@@ -24,14 +24,10 @@
 [0] [33m[nodemon] watching extensions: js,mjs,cjs,json[39m
 [0] [32m[nodemon] starting `node server.js`[39m
 [1]
-[1]   VITE v5.4.21  ready in 340 ms
+[1]   VITE v5.4.21  ready in 404 ms
 [1]
 [1]   ➜  Local:   http://localhost:5173/
 [1]   ➜  Network: use --host to expose
 [0] Firebase not configured. Using in-memory storage.
 [0] Server running on port 3000
-[1] 8:25:52 AM [vite] hmr update /src/pages/AuditResults.jsx, /src/index.css
-[0] No Google Cloud Project ID found. Using mock AI response.
-[0] Email configuration missing. Simulating email sent to: test@onqo.digital
-[0] No Google Cloud Project ID found. Using mock AI response.
-[0] Email configuration missing. Simulating email sent to: test@onqo.digital
+[0] Missing Google Cloud Project ID

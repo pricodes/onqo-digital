@@ -1,92 +1,88 @@
 # ONQO Digital Readiness Audit - Setup Guide
 
-This guide explains how to set up the environment for the ONQO Digital Readiness Audit, including Vertex AI and Email integration.
+This guide explains how to set up the environment for the ONQO Digital Readiness Audit, including Vertex AI and SendGrid integration.
 
-## Environment Variables
-
-Create a `.env` file in the `server` directory with the following variables:
-
-```env
-# Server
-PORT=3000
-
-# Google Cloud (Vertex AI)
-# Required for AI generation. If missing, the system uses a mock fallback.
-GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account-key.json"
-GOOGLE_CLOUD_PROJECT="your-project-id"
-GOOGLE_CLOUD_LOCATION="us-central1"
-
-# Email (Nodemailer)
-# Required for sending emails. If missing, email sending is simulated in console logs.
-EMAIL_HOST="smtp.gmail.com"
-EMAIL_PORT=587
-EMAIL_SECURE=false
-EMAIL_USER="your-email@gmail.com"
-EMAIL_PASS="your-app-password"
-EMAIL_FROM='"ONQO Audit" <audit@onqo.digital>'
-```
-
-## 1. Google Cloud Setup (Vertex AI)
-
-To enable the "Consultant-Grade" AI summary generation:
-
-1.  **Create a Google Cloud Project:**
-    *   Go to [Google Cloud Console](https://console.cloud.google.com/).
-    *   Create a new project (e.g., `onqo-audit`).
-
-2.  **Enable APIs:**
-    *   Enable the **Vertex AI API**.
-
-3.  **Create Service Account:**
-    *   Go to **IAM & Admin** > **Service Accounts**.
-    *   Create a new service account.
-    *   Grant the role **Vertex AI User** (roles/aiplatform.user).
-    *   Create a JSON key for this account and download it.
-    *   Save it as `server/serviceAccountKey.json` (or update `.env` path).
-
-## 2. Email Setup (Simplest Option: Gmail)
-
-To enable email delivery:
-
-1.  **Use Gmail:**
-    *   Go to your Google Account > Security.
-    *   Enable **2-Step Verification**.
-    *   Search for **App Passwords**.
-    *   Create a new App Password for "Mail" / "Server".
-    *   Copy the 16-character password.
-
-2.  **Update `.env`:**
-    *   `EMAIL_HOST=smtp.gmail.com`
-    *   `EMAIL_USER=your-email@gmail.com`
-    *   `EMAIL_PASS=your-app-password`
-
-## 3. Deployment (GCP Cloud Run)
-
-To deploy this application:
-
-1.  **Containerize:**
-    *   The project already includes a `Dockerfile` (verify it builds `client` and serves via `server`).
-    *   Or deploy `server` and `client` separately if preferred, but monorepo deployment is simpler.
-
-2.  **Environment Variables:**
-    *   When deploying to Cloud Run, add the environment variables defined above in the Cloud Run configuration.
-    *   For `GOOGLE_APPLICATION_CREDENTIALS`, typically the Cloud Run service account has permissions if granted, so you might not need the JSON file if the service identity has `Vertex AI User` role. Just set `GOOGLE_CLOUD_PROJECT`.
-
-## 4. Running Locally
+## 1. Local Development Setup
 
 1.  **Install Dependencies:**
     ```bash
     npm run install:all
     ```
 
-2.  **Start Development:**
+2.  **Environment Variables:**
+    *   Navigate to the `server` directory.
+    *   Copy `.env.example` to `.env`.
+    *   Fill in the required values (see below).
+
+    ```bash
+    cd server
+    cp .env.example .env
+    ```
+
+3.  **Start Development:**
     ```bash
     npm start
     ```
     *   Client: http://localhost:5173
     *   Server: http://localhost:3000
 
+## 2. Real Integrations Setup
+
+### Google Cloud Vertex AI (Gemini)
+
+Required for generating the executive summary.
+
+1.  **Google Cloud Project:**
+    *   Ensure you have a Google Cloud Project.
+    *   Enable the **Vertex AI API** in the Google Cloud Console.
+
+2.  **Authentication (Local):**
+    *   Install the [gcloud CLI](https://cloud.google.com/sdk/docs/install).
+    *   Run `gcloud auth application-default login` to set up Application Default Credentials (ADC).
+    *   This creates a local credential file that the Node.js client library will automatically use.
+
+3.  **Environment Variables (`server/.env`):**
+    *   `GOOGLE_CLOUD_PROJECT`: Your Project ID (e.g., `onqo-audit-123`).
+    *   `VERTEX_LOCATION`: Region (default `us-central1`).
+    *   `VERTEX_MODEL`: Model ID (default `gemini-1.5-flash-001` or `gemini-1.5-pro-001`).
+
+### SendGrid Email
+
+Required for delivering the report.
+
+1.  **Create SendGrid Account:**
+    *   Sign up for [SendGrid](https://sendgrid.com/).
+    *   Create a Sender Identity (verify a domain or single sender email).
+
+2.  **API Key:**
+    *   Go to **Settings** > **API Keys**.
+    *   Create a new API Key with "Mail Send" permissions (Restricted Access) or Full Access.
+    *   Copy the key (starts with `SG.`).
+
+3.  **Environment Variables (`server/.env`):**
+    *   `SENDGRID_API_KEY`: The API key you just copied.
+    *   `MAIL_FROM`: The verified sender email (e.g., `insights@onqo.in`).
+    *   `MAIL_BCC`: (Optional) Email to receive a copy of all reports (default `priya@onqo.in`).
+
+## 3. Cloud Run Deployment
+
+When deploying to Google Cloud Run:
+
+1.  **Service Account:**
+    *   Ensure the Cloud Run service account (usually the default Compute Engine service account) has the **Vertex AI User** role (`roles/aiplatform.user`).
+    *   This allows the code to access Vertex AI without a JSON key file.
+
+2.  **Environment Variables:**
+    *   Set the following environment variables in your Cloud Run service configuration:
+        *   `GOOGLE_CLOUD_PROJECT`
+        *   `VERTEX_LOCATION`
+        *   `VERTEX_MODEL`
+        *   `SENDGRID_API_KEY`
+        *   `MAIL_FROM`
+        *   `MAIL_BCC`
+
 ## Troubleshooting
 
-*   **AI is mocking:** Check if `GOOGLE_CLOUD_PROJECT` is set in `.env` and `server/server.js` can read it.
-*   **Email not sending:** Check console logs. If "Email configuration missing" appears, check `.env`. If error occurs, check SMTP settings.
+*   **"Service not configured":** Check your `.env` file or Cloud Run environment variables. Both `GOOGLE_CLOUD_PROJECT` and `SENDGRID_API_KEY` are required.
+*   **Vertex AI Permission Denied:** Ensure your local user (via `gcloud auth application-default login`) or the Cloud Run service account has the **Vertex AI User** role.
+*   **Email not received:** Check SendGrid Activity Feed. Ensure `MAIL_FROM` is a verified sender in SendGrid.

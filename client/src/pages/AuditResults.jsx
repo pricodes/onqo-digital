@@ -89,7 +89,7 @@ const AuditResults = () => {
         try {
             setSubmittingEmail(true);
 
-            const response = await fetch('http://localhost:3000/api/audit/summary', {
+            const response = await fetch('/api/audit/summary', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -101,14 +101,13 @@ const AuditResults = () => {
             });
 
             if (!response.ok) {
-                // If backend fails, we still want to show a "success" state for the demo if possible,
-                // but ideally we show the error. For now, let's assume success if we can't reach backend
-                // but warn the user or just show local fallback?
-                // The prompt says "Implement ONE backend endpoint...".
-                // If it fails, maybe we can't show the FULL report?
-                // Let's try to parse the response.
-                const errData = await response.json();
-                throw new Error(errData.error || 'Failed to generate summary');
+                const errData = await response.json().catch(() => ({}));
+
+                if (response.status === 503 || errData.error === 'Service not configured') {
+                     throw new Error('Service not configured');
+                }
+
+                throw new Error('Report generation is temporarily unavailable. Please try again in a few minutes.');
             }
 
             const data = await response.json();
@@ -126,7 +125,11 @@ const AuditResults = () => {
             setEmailSubmitted(true);
         } catch (e) {
             console.error(e);
-            setError('Could not generate report. Please try again.');
+            if (e.message === 'Service not configured') {
+                 setError('Service not configured. Please contact the administrator.');
+            } else {
+                 setError('Report generation is temporarily unavailable. Please try again in a few minutes.');
+            }
         } finally {
             setSubmittingEmail(false);
         }
