@@ -1,10 +1,35 @@
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
 
 const CTA = () => {
+    const sectionRef = useRef(null);
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsVisible(true);
+                }
+            },
+            { threshold: 0.1 }
+        );
+
+        if (sectionRef.current) {
+            observer.observe(sectionRef.current);
+        }
+
+        return () => {
+            if (sectionRef.current) {
+                observer.unobserve(sectionRef.current);
+            }
+        };
+    }, []);
+
     return (
-        <section className="py-24 border-t border-zinc-800 bg-gradient-to-b from-zinc-900 to-black">
-            <div className="container mx-auto px-4 text-center">
+        <section ref={sectionRef} className="py-24 border-t border-zinc-800 bg-gradient-to-b from-zinc-900 to-black overflow-hidden">
+            <div className={`container mx-auto px-4 text-center transition-all duration-1000 transform ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
                 <h2 className="text-4xl md:text-6xl font-bold mb-8 text-white tracking-tighter">
                     Ready to scale your business?
                 </h2>
@@ -12,7 +37,7 @@ const CTA = () => {
                     Get a comprehensive analysis of your digital maturity and a personalized roadmap for growth.
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center items-center gap-6">
-                    <Link to="/audit" className="inline-flex items-center gap-3 px-10 py-5 bg-white text-black font-bold text-lg rounded-full hover:bg-zinc-200 transition-all shadow-[0_0_30px_-5px_rgba(255,255,255,0.3)] hover:shadow-[0_0_40px_-5px_rgba(255,255,255,0.4)] group">
+                    <Link to="/audit" className="inline-flex items-center gap-3 px-10 py-5 bg-white text-black font-bold text-lg rounded-full hover:bg-zinc-200 transition-all shadow-[0_0_30px_-5px_rgba(255,255,255,0.3)] hover:shadow-[0_0_40px_-5px_rgba(255,255,255,0.4)] hover:translate-y-[-2px] duration-200 group">
                         Start Your Audit Now
                         <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
                     </Link>

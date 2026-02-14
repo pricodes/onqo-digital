@@ -1,0 +1,37 @@
+
+> onqo-digital-monorepo@1.0.0 start
+> concurrently "npm run start:server" "npm run start:client"
+
+[1]
+[1] > onqo-digital-monorepo@1.0.0 start:client
+[1] > cd client && npm run dev
+[1]
+[0]
+[0] > onqo-digital-monorepo@1.0.0 start:server
+[0] > cd server && npm run dev
+[0]
+[1]
+[1] > onqo-client@0.0.0 dev
+[1] > vite
+[1]
+[0]
+[0] > onqo-server@1.0.0 dev
+[0] > nodemon server.js
+[0]
+[0] [33m[nodemon] 3.1.11[39m
+[0] [33m[nodemon] to restart at any time, enter `rs`[39m
+[0] [33m[nodemon] watching path(s): *.*[39m
+[0] [33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[0] [32m[nodemon] starting `node server.js`[39m
+[1]
+[1]   VITE v5.4.21  ready in 340 ms
+[1]
+[1]   ➜  Local:   http://localhost:5173/
+[1]   ➜  Network: use --host to expose
+[0] Firebase not configured. Using in-memory storage.
+[0] Server running on port 3000
+[1] 8:25:52 AM [vite] hmr update /src/pages/AuditResults.jsx, /src/index.css
+[0] No Google Cloud Project ID found. Using mock AI response.
+[0] Email configuration missing. Simulating email sent to: test@onqo.digital
+[0] No Google Cloud Project ID found. Using mock AI response.
+[0] Email configuration missing. Simulating email sent to: test@onqo.digital
